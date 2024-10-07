@@ -1,0 +1,29 @@
+Instruction:
+Given the following "claim", the "extracted entities" from the claim, and an "evidence article", extract all "relationships" between the "entities from the claim that are "explicitly supported" by the article.
+
+Guidelines:
+
+- "Focus solely on relationships among the extracted entities" from the claim.
+- "Only include relationships that are directly supported" by the article.
+- "Ignore any information" in the article that does not pertain to these entities or their relationships.
+- "Represent each relationship as a triple" in the format:
+[Subject Entity], [Relationship], [Object Entity]
+- "Be specific and concise" in naming entities and relationships.
+- "Do not infer or assume relationships" not directly stated in the article.
+- "After listing the relationships, do not include any additional text."
+- If the article isn't relevant to the claim, respond with "No relationships found."
+
+Claim:
+
+"[Insert your claim here]"
+
+Extracted Entities from the Claim:
+
+"[Insert the extracted entities]"
+
+Article:
+
+"[Insert the evidence article here or summarize key points]"
+
+Extracted Relationships:
+
