@@ -1,0 +1,7 @@
+nltk
+urllib3
+trafilatura
+selenium
+google-api-python-client
+google-generativeai
+tqdm
