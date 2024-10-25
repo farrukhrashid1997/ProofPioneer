@@ -39,9 +39,8 @@ class GoogleCustomSearch:
                     search_string,
                     num=10,
                     start=0 + 10 * page,
-                    sort=f"date:r:19000101:{sort_date}",
-                    dateRestrict=None,
-                    gl="US"
+                    # sort=f"date:r:19000101:{sort_date}",
+                    # dateRestrict=None,
                 )
                 break
             except Exception as e:

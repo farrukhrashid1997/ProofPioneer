@@ -2,3 +2,5 @@ secrets/*.json
 utils/__pycache__/
 outputs/
 .DS_Store
+
+/venv/

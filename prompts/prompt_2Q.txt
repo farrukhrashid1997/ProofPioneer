@@ -6,6 +6,8 @@ Given the following claim, generate "two concise and direct" questions that woul
 3. Focus on being "specific and clear".
 4. "Avoid adding explanations or additional information" within the questions.
 5. Cover the "Who," "What," "When," "Where," "Why," and "How" aspects to address all possible angles.
+6. Generate the questions in the same language as the claim.
+
 
 To create effective questions, follow these guidelines:
 
@@ -38,9 +40,13 @@ To create effective questions, follow these guidelines:
 Examples:
 Example 1:
 
-Claim:
+Claim: 
 
 "Donald Trump delivered the largest tax cuts in American history."
+
+language: 
+
+"en"
 
 Questions:
 
@@ -53,6 +59,10 @@ Claim:
 
 "Professor Tasuku Honjo worked in the Wuhan laboratory in China for four years."
 
+language: 
+
+"en"
+
 Questions:
 
 Did Professor Tasuku Honjo work at a laboratory in Wuhan, China?
@@ -62,6 +72,10 @@ Now, your turn:
 Claim:
 
 [Insert the claim here]
+
+language: 
+
+[Insert the language here]
 
 Questions:
 1.
