@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 from tqdm import tqdm
 from multiprocessing import Manager, Lock
 import multiprocessing
@@ -11,8 +12,7 @@ from urllib.parse import urlparse
 
 # Blacklists
 BLACKLIST_DOMAINS = {
-    "facebook.com",
-    "huggingface.co",
+    "youtube.com", "facebook.com", "researchgate.net"
 }
 
 def get_domain_name(url):
@@ -23,11 +23,41 @@ def get_domain_name(url):
 
 def should_filter_link(link):
     domain = get_domain_name(link)
+    ## Blacklist domains are empty for now.
     if domain in BLACKLIST_DOMAINS:
         return True
     if link.endswith((".pdf", ".doc")):
         return True
     return False
+
+
+def initialize_db(db_path="index.db"):
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS index_table (
+            key TEXT PRIMARY KEY,
+            path TEXT NOT NULL,
+            original_url TEXT,
+            crawl_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    return conn
+
+def insert_index(conn, key, path, original_url, lock):
+    try:
+        with lock:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO index_table (key, path, original_url) VALUES (?, ?, ?)", 
+                (key, path, original_url)
+            )
+            conn.commit()
+    except sqlite3.IntegrityError:
+        print(f"Duplicate entry for key: {key}")
+    except Exception as e:
+        print(f"Failed to insert index for {original_url}: {e}")
 
 def get_scraped_content(link, store_file_path):
     try:
@@ -55,6 +85,9 @@ def main():
     # Initialize variable
     arguments = set()
     store_counter = 0
+    index_entries = [] 
+        # Initialize database
+    conn = initialize_db("outputs/index.db")
     
     with open("outputs/search_results.json", "r") as fp:
         search_results = json.load(fp)
@@ -68,7 +101,7 @@ def main():
                     link = str(result_object["link"]).strip()
                     if should_filter_link(link):
                         continue
-                    webpage_key = f"{claim_index}-{query_index}-{page_num}-{webpage_index}"
+                    key = f"{claim_index}-{query_index}-{page_num}-{webpage_index}"
                     
                     if link in visited:
                         store_file_path = visited[link]
@@ -80,6 +113,7 @@ def main():
                         )
                         visited[link] = store_file_path
                         arguments.add((link, store_file_path))
+                    index_entries.append((key, store_file_path, link))
                         
     print(f"Total unique links to process: {len(arguments)}")
     # Get the number of cpus available - leaving one core free is important to leave
@@ -95,7 +129,9 @@ def main():
             success, url, path = future.result()
             if not success:
                 print(f"Failed to process link: {url}")
-        
+    
+    for key, path, url in tqdm(index_entries, desc="Inserting into Database"):
+        insert_index(conn, key, path, url, lock)
 
 if __name__ == "__main__":
     main()
