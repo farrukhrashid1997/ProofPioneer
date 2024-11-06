@@ -54,7 +54,8 @@ def insert_index(conn, key, path, original_url, lock):
                 (key, path, original_url)
             )
             conn.commit()
-    except sqlite3.IntegrityError:
+    except sqlite3.IntegrityError as e:
+        print(e)
         print(f"Duplicate entry for key: {key}")
     except Exception as e:
         print(f"Failed to insert index for {original_url}: {e}")
@@ -112,7 +113,9 @@ def main():
                             document_folder, f"webpage_{store_counter}.json"
                         )
                         visited[link] = store_file_path
+                        # if (claim_index < 2):
                         arguments.add((link, store_file_path))
+                    
                     index_entries.append((key, store_file_path, link))
                         
     print(f"Total unique links to process: {len(arguments)}")

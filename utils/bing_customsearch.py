@@ -24,7 +24,7 @@ class BingCustomSearch:
 
     def _bing_search(self, search_term, **kwargs):
         headers = {"Ocp-Apim-Subscription-Key": self.bing_secrets["api_key"]}
-        params = {"q": search_term, "count": 10,  "customconfig": self.bing_secrets["customconfig_id"], **kwargs}
+        params = {"q": search_term, "count": 5,  "customconfig": self.bing_secrets["customconfig_id"], **kwargs}
         response = requests.get(self.bing_secrets["endpoint"], headers=headers, params=params)
         response.raise_for_status()
         return response.json().get("webPages", {}).get("value", [])
