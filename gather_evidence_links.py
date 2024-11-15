@@ -63,11 +63,9 @@ def extract_and_format_date(check_date, default_date="2022-01-01"):
 if __name__ == "__main__":
     with open("claim_datasets/averitec/train.json") as fp:
         claims_to_process = json.load(fp) 
-        claims_to_process = random.sample(claims_to_process, 10) # Pick 50 random examples for testing
+        claims_to_process = random.sample(claims_to_process, 2) # Pick 50 random examples for testing
         min_date = "2022-01-01" # YYYY-MM-DD
-    # rows_with_claimDate = claims_df[claims_df["claimDate"] != "none"]     
-    # claims_to_process = rows_with_claimDate.sample(10)
-    # min_date = "2020-01-01" # YYYY-MM-DD
+
     
     # # Question generation prompt
     with open("prompts/prompt_2Q.txt", "r") as f:
@@ -87,7 +85,7 @@ if __name__ == "__main__":
     # Google Search
     n_pages = 1
     max_api_calls_per_account = 100
-    # google_search = GoogleCustomSearch(max_api_calls_per_account, n_pages)
+    google_search = GoogleCustomSearch(max_api_calls_per_account, n_pages)
     # bing_search = BingCustomSearch(max_api_calls_per_account, n_pages)
 
     # # Gemini Flash 1.5 Interface 
@@ -145,12 +143,12 @@ if __name__ == "__main__":
                 this_search_type
             ))
 
-            # sstring_search_results = google_search.fetch_results(this_search_string, sort_date)
-            # results[claim][this_search_string] = sstring_search_results
+            sstring_search_results = google_search.fetch_results(this_search_string, sort_date)
+            results[claim][this_search_string] = sstring_search_results
 
         # Save updated results and claim_queries after processing each claim
-        # with open(results_filename, "w", encoding='utf-8') as fp:
-        #     json.dump(results, fp, indent=4, ensure_ascii=False)
+        with open(results_filename, "w", encoding='utf-8') as fp:
+            json.dump(results, fp, indent=4, ensure_ascii=False)
 
         with open(claim_queries_filename, "w", encoding='utf-8') as fp:
             json.dump(claim_queries, fp, indent=4, ensure_ascii=False)

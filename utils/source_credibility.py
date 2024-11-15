@@ -156,9 +156,3 @@ if __name__ == "__main__":
         
     for result in results:
         print(result)
-
-## TODO
-## Figure out a way to get Domain Authority (right now all the apis are paid)
-## 
-
-## check for acl workshops - they might be useful

@@ -1,155 +1,219 @@
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from sentence_transformers import SentenceTransformer
+import sqlite3
 import json
 import os
+import re
 from tqdm import tqdm
-import sqlite3
-import numpy as np
-import faiss
+import logging
+import uuid
 
-class ClaimChunks:
-    def __init__(self, embedding_model_name: str = "Alibaba-NLP/gte-base-en-v1.5"):
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500, 
-            chunk_overlap=50, 
-            separators=["\n\n", "\n", ". ", " ", ""]
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.embeddings import HuggingFaceEmbeddings  # Updated Import
+from langchain_community.vectorstores import Qdrant  # Updated Import
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import VectorParams, Distance
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,  # Set to DEBUG for more detailed logs
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+global text_splitter
+global embedding_model
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+
+def initialize_qdrant(
+    host: str = "localhost",
+    port: int = 6333,
+    collection_name: str = "fact_checking",
+    vector_size: int = 384,
+    distance_metric: str = "Cosine", 
+) -> Qdrant:
+    """
+    Initializes the Qdrant client and ensures the specified collection exists.
+
+    Args:
+        host (str): Hostname where Qdrant is running.
+        port (int): Port number for Qdrant.
+        collection_name (str): Name of the collection to use/create.
+        vector_size (int): Dimensionality of the vectors.
+        distance_metric (str): Distance metric to use (e.g., "Cosine", "Euclidean").
+
+    Returns:
+        Qdrant: An instance of LangChain's Qdrant vector store.
+    """
+    try:
+        # Initialize Qdrant client
+        logger.info(f"Connecting to Qdrant at {host}:{port}...")
+        qdrant_client = QdrantClient(host=host, port=port)
+        logger.info("Successfully connected to Qdrant.")
+
+        # Check if the collection exists
+        logger.info(f"Checking if collection '{collection_name}' exists...")
+        existing_collections = qdrant_client.get_collections()
+        collection_names = [collection.name for collection in existing_collections.collections]
+
+        if collection_name in collection_names:
+            logger.info(f"Collection '{collection_name}' already exists.")
+        else:
+            # Create the collection with the specified parameters
+            logger.info(f"Creating collection '{collection_name}' with vector size {vector_size} and distance metric '{distance_metric}'...")
+            qdrant_client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(
+                    size=vector_size,
+                    distance=distance_metric,  # Options: "Cosine", "Euclidean", "Dot"
+                )
+            )
+            logger.info(f"Collection '{collection_name}' created successfully.")
+
+        # Initialize LangChain's Qdrant vector store
+        qdrant_vectorstore = Qdrant(
+            client=qdrant_client,  # Correct parameter name
+            collection_name=collection_name,
+            embeddings=embedding_model
         )
-        self.embedding_model =  SentenceTransformer(embedding_model_name, trust_remote_code=True)
-        self.dimension = 768
-        self.index = faiss.IndexFlatL2(self.dimension)
-        self.chunks = {}
-        self.embeddings_temp = []
-     
-    
-    def read_document(self, document_path: str) -> str:
-        """Read document content from file"""
-        try:
-            with open(document_path, 'r', encoding='utf-8') as f:
-                content = json.load(f)
-                text = content.get('text', '') or content.get('raw_text', '')
-                return text
-        except Exception as e:
-            print(f"Error reading document {document_path}: {e}")
-            return ""
-    
-    def get_index(self, key):
-        try:
-            conn = sqlite3.connect("outputs/index.db", check_same_thread=False)
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM index_table WHERE key = ?", (key,))
-            result = cursor.fetchone() 
-            return result
-        
-        except Exception as e:
-            print("An error occurred:", e)
+        logger.info(f"LangChain Qdrant vector store for '{collection_name}' initialized.")
+
+        return qdrant_vectorstore
+
+    except Exception as e:
+        logger.error(f"Failed to initialize Qdrant: {e}")
+        raise e
+
+def get_file_path(key: str, db_path: str = "outputs/index.db") -> str:
+    """
+    Retrieves the file path from the SQLite database based on the provided key.
+
+    Args:
+        key (str): The unique key to search for in the database.
+        db_path (str): Path to the SQLite database file.
+
+    Returns:
+        str: The file path associated with the key, or None if not found.
+    """
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT path FROM index_table WHERE key = ?", (key,))
+        result = cursor.fetchone()
+        conn.close()
+        if result:
+            return result[0]
+        else:
+            logger.warning(f"No path found for key: {key}")
             return None
+    except Exception as e:
+        logger.error(f"Unexpected Error for key '{key}': {e}")
+        return None
+
+def clean_text(text: str) -> str:
+    """
+    Cleans the input text by removing unwanted characters and formatting.
+
+    Args:
+        text (str): The raw text to clean.
+
+    Returns:
+        str: The cleaned text.
+    """
+    text = text.replace("\n", " ").replace("\r", " ")
+    text = re.sub(r'<[^>]+>', '', text)  # Remove HTML tags
+    text = re.sub(r'\s+', ' ', text)     # Replace multiple whitespace with single space
+    text = text.strip()
+    return text
+
+def process_and_store_claim_chunks(claim_id: str, document_json: dict, qdrant_vectorstore: Qdrant):
+    """
+    Processes the document text, splits it into chunks, generates embeddings,
+    and stores them in Qdrant.
+
+    Args:
+        claim_id (str): The identifier for the claim.
+        document_json (dict): The document containing 'hostname' and 'text'.
+        qdrant_vectorstore (Qdrant): The initialized Qdrant vector store.
+    """
+    hostname = document_json["hostname"]
+    text = document_json["text"]
+    cleaned_text = clean_text(text)
+    chunks = text_splitter.split_text(cleaned_text)
+
+    # Prepare texts, metadatas, and ids
+    texts = chunks
+    metadatas = [
+        {
+            "claim_id": claim_id,
+            "source": hostname,
+            "chunk_number": chunk_number
+        } for chunk_number in range(len(chunks))
+    ]
+    ids = [str(uuid.uuid4()) for _ in range(len(chunks))]
+
     
-    
-    def process_document(self, text: str, claim_id: str, document_key: str):
-        """Process a single document into chunks with embeddings"""
-        chunks = self.text_splitter.split_text(text)
-        # chunk_metadata = []
-        print(len(chunks))
-        
-        # Generate embeddings for all chunks at once for efficiency
-        embeddings = self.embedding_model.encode(chunks)
-        
-        # for i, chunk in enumerate(chunks):
-        #     chunk_id = f"{claim_id}-{document_key}-{i}"
-        #     chunk_metadata.append({
-        #         'chunk_id': chunk_id,
-        #         'claim_id': claim_id,
-        #         'document_key': document_key,
-        #         'chunk_text': chunk,
-        #         'chunk_index': i  # Store index for mapping back to embeddings
-        #     })
-        
-        return chunks, embeddings
-    
-    
-    def get_claim_documents(self):
-        with open("outputs/search_results.json", "r") as fp:
+    try:
+        qdrant_vectorstore.add_texts(
+            texts=texts,
+            metadatas=metadatas,
+            ids=ids
+        )
+        logger.info(f"Successfully inserted {len(texts)} vectors for claim '{claim_id}'.")
+    except Exception as e:
+        logger.error(f"Error inserting vectors for claim '{claim_id}': {e}")
+
+
+def main():
+
+    # Initialize Qdrant vector store
+    qdrant_vectorstore = initialize_qdrant(
+        host="localhost",
+        port=6333,
+        collection_name="fact_checking",
+        vector_size=384,  # Dimensionality of 'sentence-transformers/all-MiniLM-L6-v2'
+        distance_metric="Cosine"  # Choose based on your similarity requirements
+    )
+    # Load search results
+    search_results_path = "outputs/search_results.json"
+    if not os.path.exists(search_results_path):
+        logger.error(f"Search results file not found at path: {search_results_path}")
+        return
+
+    with open(search_results_path, "r") as fp:
+        try:
             search_results = json.load(fp)
-            document_folder = "outputs/documents"
-            os.makedirs(document_folder, exist_ok=True)
-        for claim_index, (claim, queries) in enumerate(tqdm(search_results.items(), desc="Processing Claims")):
-            claim_id = f"claim_{claim_index}"
-            # claim_chunks = []
-            # claim_metadata = []
-            # claim_embeddings = []
-            if claim_index == 2:
-                break
-            for query_index, (query, page_results) in enumerate(queries.items()):
-                for page_num, results in page_results.items():
-                    for webpage_index, result_object in enumerate(results):
-                        doc_key = f"{claim_index}-{query_index}-{page_num}-{webpage_index}"
-                        index_result = self.get_index(doc_key)
-                        if not index_result:
-                            continue
-                        
-                        document_path = index_result[1]
-                        document_text = self.read_document(document_path)
-                        
-                        if not document_text:
-                            continue
-                        # Process document into chunks
-                        chunks, embeddings = self.process_document(
-                            document_text, 
-                            claim_id, 
-                            doc_key,
-                        )
-                        # claim_chunks.extend(chunks)
-                        # claim_metadata.extend(metadata)
-                        self.embeddings_temp.append(np.array(embeddings).astype('float32'))
-            if self.embedding_model:
-                all_embeddings = np.vstack(self.embeddings_temp)
-                self.index.add(all_embeddings)
-                self.embeddings_temp = []
-            faiss.write_index(self.index, f"outputs/faiss/faiss_index_{claim_index}.index")
-                        
-                        
-    
-    
-                        
-    # def load_index(self, claim_index):
-    #     """Load FAISS index and chunks for a specific claim"""
-    #     # Load FAISS index
-       
-                           
-                        
-    def search(self, query: str, k: int = 5):
-        """Search for k most similar sentences to the query"""
-        # Generate embedding for the query
-        query_embedding = self.embedding_model.encode([query])
-        query_embedding = np.array(query_embedding).astype('float32')
-        # Search the index
-        self.index = faiss.read_index(f"outputs/faiss/faiss_index_0.index")
-        distances, indices = self.index.search(query_embedding, k)
-        
-        # Get the corresponding chunks
-        results = []
-        for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
-            print(idx)
-            if idx < 216:  # Ensure index is valid
-                # chunk_id, text = self.chunks[idx]
-                results.append({
-                    'rank': i + 1,
-                    # 'chunk_id': chunk_id,
-                    # 'text': text,
-                    'similarity_score': 1 - distance  # Convert distance to similarity
-                })
-        
-        return results
-                        
+            logger.info(f"Loaded search results from {search_results_path}.")
+        except json.JSONDecodeError as e:
+            logger.error(f"Error decoding JSON from {search_results_path}: {e}")
+            return
+
+    document_folder = "outputs/documents"
+    os.makedirs(document_folder, exist_ok=True)
+
+    # Process each claim
+    for claim_index, (claim, queries) in enumerate(tqdm(search_results.items())):
+        for query_index, (query, page_results) in enumerate(queries.items()):
+            for page_num, results in page_results.items():
+                for webpage_index, result_object in enumerate(results):
+                    key = f"{claim_index}-{query_index}-{page_num}-{webpage_index}"
+                    file_path = get_file_path(key)
+                    if file_path and os.path.exists(file_path):
+                        try:
+                            with open(file_path, "r") as fp:
+                                document_json = json.load(fp)
+                                if document_json:
+                                    process_and_store_claim_chunks(claim_index, document_json, qdrant_vectorstore)
+                                else:
+                                    logger.warning(f"Empty JSON found for key: {key}, file: {file_path}")
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Error decoding JSON from file {file_path}: {e}")
+                        except Exception as e:
+                            logger.error(f"Error processing file {file_path} for key {key}: {e}")
+                    else:
+                        logger.warning(f"File path not found or does not exist for key: {key}, path: {file_path}")
+
 if __name__ == "__main__":
-    claim_chunks = ClaimChunks()
-    # claim_chunks.get_claim_documents()
-    # claim_chunks.load_index(0)
-    res = claim_chunks.search("Diaspora remittances contributed upwards of KSh290.")
-    print(res)
-    
-## boolean based searches
-## google based dorking
-## advanced queries - re
-
-
+    main()
