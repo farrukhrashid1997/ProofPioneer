@@ -80,7 +80,10 @@ def process_url(record):
             claim_text = "Claim text not found"
         result['claim'] = claim_text
     
-        # Extract Tags
+        # Extract text
+        text = json_data.get("text")
+        result['text'] = text
+        
         # Extract Tags
         tags = json_data.get("tags", "")
         if isinstance(tags, str):
@@ -89,29 +92,33 @@ def process_url(record):
         else:
             result['tags'] = tags if tags else []
 
-
-        # Extract Source
-        source = json_data.get("source", "No source found")
-        result['source'] = source
-
         # Extract Categories
         categories = json_data.get("categories", [])
         result['issue'] = categories if categories else "No categories found"
 
         # Extract Source Links
+        
         sources = soup.find("div", id="sources_rows")
         extracted_urls = []
-        if sources:
-            p_tags = sources.find_all('p')
-            url_pattern = re.compile(
+        url_pattern = re.compile(
                 r'(https?://(?:www\.|(?!www))[^\s<>"\'()]+|www\.[^\s<>"\'()]+)'
             )
+        if sources:
+            sources = soup.find("div", id="sources_rows")
+            p_tags = sources.find_all('p')
             for p in p_tags:
                 text = p.get_text()
                 urls = url_pattern.findall(text)
                 cleaned_urls = [url.rstrip('.,;') for url in urls]
                 extracted_urls.extend(cleaned_urls)
 
+        if len(extracted_urls) == 0:
+            csl_entries = sources.find("div", class_="csl-bib-body").find_all("div", class_="csl-entry")
+            for entry in csl_entries:
+                text = entry.get_text()
+                urls = url_pattern.findall(text)
+                cleaned_urls = [url.rstrip('.,;') for url in urls]
+                extracted_urls.extend(cleaned_urls)
         # Store extracted URLs as a list
         result['fact_check_sources'] = extracted_urls if extracted_urls else []
 
@@ -165,7 +172,18 @@ def main():
         sys.exit(1)
 
     # Define output columns
-    columns = ['claim', 'claim_factcheck_url', "claim_author", "claim_source", "claim_date", "factcheck_date", "justification", "fact_check_sources", "issue", 'label', 'tags', "text"]
+    columns = ['claim', 
+               'claim_factcheck_url', 
+               "claim_author", 
+               "claim_source", 
+               "claim_date", 
+               "factcheck_date", 
+               "justification", 
+               "fact_check_sources", 
+               "issue", 
+               'label', 
+               'tags', 
+               "text"]
     initialize_output_csv(output_csv, columns)
 
     # Prepare data for processing
@@ -174,7 +192,7 @@ def main():
     batch_size = 10
 
     # Set up multiprocessing pool with a maximum of 4 processes
-    pool_size = min(4, multiprocessing.cpu_count())  # Maximum of 4 processes
+    pool_size = min(2, multiprocessing.cpu_count())  # Maximum of 4 processes
     pool = Pool(processes=pool_size)
 
     try:
@@ -187,8 +205,9 @@ def main():
                 results = []
         # Write any remaining results
         if results:
-            pd.DataFrame(results).to_csv(output_csv, mode='a', header=False, index=False)
+            pd.DataFrame(results, columns=columns).to_csv(output_csv, mode='a', header=False, index=False, quoting=1)
         
+     
         # Save URLs with no fact_check_sources to a separate CSV
         save_sources_not_found(results, no_sources_csv)
 

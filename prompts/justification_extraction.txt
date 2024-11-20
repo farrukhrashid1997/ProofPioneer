@@ -1,0 +1,46 @@
+
+
+Instructions: Take on the role of a fact-checker. Below are claims with their associated labels and reasoning. Based on the reasoning provided, generate a concise and objective summary explaining why the claim is rated as the given label. Additionally, identify the claim author and claim date from the reasoning. If this information is not present, indicate none for the respective field.
+Do not mention external fact-checking organizations such as Snopes or similar platforms. Instead, rely solely on the evidence, reasoning, and context provided to evaluate the claim. Focus on proper evidence like data, video footage, or reliable contextual details that directly validate or refute the claim.
+
+
+Example 1:
+Claim: Elon Musk bans DreamWorks Animation from X for promoting Pride
+Label: False
+Reasoning: Viral social media posts claim former two-time heavyweight champion Mike Tyson draped the Palestinian flag around his body ahead of his highly publicized Nov. 15 boxing match with YouTuber-turned-boxer Jake Paul. "Mike Tyson poses with the Palestinian flag before his historic fight," a Nov. 15 Facebook post said. The post included an image of Tyson with the four-color flag resting on his neck and shoulders. A different Facebook post claimed Tyson wore the flag a day before his fight with Paul.We saw similar posts on X.The Facebook post was flagged as part of Meta’s efforts to combat false news and misinformation on its News Feed. (Read more about our partnership with Meta, which owns Facebook, Threads and Instagram.)These claims are wrong. Tyson, 58, didn’t display the Palestinian flag during his prematch appearance or during the fight which he lost to Paul, 27. Some said Tyson wore the flag a day before his match but his public appearance on that day does not support this.We reviewed the livestream of the Nov. 14 prematch weigh-in and it shows Tyson wore a personally branded jacket and Versace bottoms. The photo in the claim shows Tyson in a boxing ring, but the weigh-in was at the Toyota Music Factory in Irving, Texas, not in a boxing ring. On fight night, Tyson wore a short-sleeved black poncho and black shorts. We found no photos showing Tyson and the Palestinian flag from news agencies that covered this match. The lack of photos from trusted news sources for a highly publicized event signal this image is not authentic. We rate the claim that Tyson posed with the Palestinian flag False.
+Summary: Viral claims suggested Elon Musk banned DreamWorks Animation for promoting Pride, but no evidence supports this. Verified videos and images of Tyson’s prematch appearances show no Palestinian flag, and no credible sources reported this.
+Claim Author: None
+Claim Date: None
+
+Example 2:
+Claim: As of today, we have cut the flow of immigration by over half.
+Label: True
+Reasoning: Immigration has been one of the toughest issues for Vice President Kamala Harris to address on the campaign trail; her opponent, Donald Trump, has repeatedly spotlighted a spike of illegal immigration under her and President Joe Biden. 
+But in a recent CNN town hall in Delaware County, Pennsylvania, Harris offered an optimistic data point.
+"As of today, we have cut the flow of immigration by over half," Harris told moderator Anderson Cooper  Oct. 23. 
+She’s right. Depending on when you start counting, the drop is well over half.
+The night of the town hall, Harris’ campaign pointed PolitiFact to official federal government data on encounters at the United States’ southwestern border with Mexico. 
+Encounters are occasions when immigration officials stop someone at the border. A single person could be stopped more than once and counted more than once, and encounters do not mean that the person is let into the U.S. But for understanding migration at the U.S. border, encounters are a standard metric.
+Border Patrol encounters with migrants between ports of entry at the southwest land border peaked in December 2023 at about 250,000. In September, the latest month with available data and the end of fiscal year 2024, there were about 54,000 encounters. That’s a 78% drop, or more than half, U.S. Customs and Border Protection data shows.
+If you start with a different month, the drop is still significant. From September 2023 to September 2024, the number fell from about 219,000 to 54,000, a 75.3% decline. From January 2024 to September 2024, the number fell from about 124,200 to 54,000, a 56.5% drop.
+U.S. immigration experts said it’s difficult to isolate single causes for changes in border arrival counts, but a Biden executive action that limits immigrants’ ability to apply for asylum at the southwest border took effect in June and likely has had an effect.
+"The Biden playbook rests on narrowing asylum eligibility for migrants who cross the border illegally, expanding the use of lawful migration pathways, and encouraging Mexico, Panama, Costa Rica, and other regional partners to increase their migration controls and enforcement," the Migration Policy Institute, a nonpartisan think tank, wrote in a recent analysis.
+Taken together, the group added, "these policies have ushered in a new era of migration management in response to unprecedented changes in flows over the last three and a half years. These efforts represent new and innovative approaches to managing migration, even as they are subject to litigation and change."
+Mexican efforts to increase its enforcement, driven partly by U.S. pressure, have also helped decrease immigration, experts say. 
+Biden and former Mexican President Andrés Manuel López Obrador spoke multiple times beginning in late 2023 and released statements about joint efforts to curb immigration, fentanyl and firearms trafficking.
+
+Summary: The claim is supported by federal data showing a 57% to 78% reduction in border encounters over the past year. Policy changes, asylum restrictions, and joint efforts with Mexico contributed to the significant decrease.
+Claim Author: Kamala Harris
+Claim Date: Oct 23, 2024
+
+
+Now, your turn:
+
+Claim: [Insert the claim here]
+Label: [Insert the label here]
+Reasoning: [Insert the reasoning here]
+
+Summary: [Generate a concise summary based on the reasoning provided.]
+Claim Author: [Extract the claim author or put none if not available.]
+Claim Date: [Extract the claim date or put none if not available.]
+

@@ -83,7 +83,7 @@ class GeminiAPI:
             )
         return initialize_model
 
-    def get_llm_response(self, input_text):
+    def get_llm_response(self, input_text, force_rotate=False):
         """
         Generates a response from the Gemini model based on the input_text using generate_content.
         Args:
@@ -91,7 +91,7 @@ class GeminiAPI:
         Returns:
             str or None: The model's response in the specified MIME type if successful, else None.
         """
-        if self.request_count >= self.max_requests_per_key:
+        if self.request_count >= self.max_requests_per_key or force_rotate: 
             self.model = self.get_model()
             self.request_count = 0
 
