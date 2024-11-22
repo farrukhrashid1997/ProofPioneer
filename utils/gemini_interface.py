@@ -5,12 +5,6 @@ from itertools import cycle
 import json
 import time
 from typing import List
-from multiprocessing import Lock
-import os
-
-# file_lock = Lock()
-
-
 
 class GeminiAPI:
     def __init__(
@@ -61,77 +55,26 @@ class GeminiAPI:
 
         # Configure API keys and rate limiting (Free version)
         if "flash" in model_name:
-            self.max_requests_per_minute = 15
             self.max_requests_per_key = 1500
             self.sleep_time = 3.5
         else:
-            self.max_requests_per_minute = 50
             self.max_requests_per_key = 50
             self.sleep_time = 15
-            
-        self.secrets_file = secrets_file 
-        self.key_state_file = secrets_file.replace('.json', '_state.json')
-        self.initialize_key_states()
+
         self.request_count = 0
-        
+
+        with open(secrets_file, "r") as f:
+            self.api_keys = cycle(json.load(f)["keys"])
+
         self.get_model = self.get_gemini_model()
         self.model = self.get_model()
-        
-
-
-    def initialize_key_states(self):
-        # with file_lock:
-            try:
-                with open(self.key_state_file, "r") as f:
-                    self.key_states = json.load(f)
-            except FileNotFoundError:
-                with open(self.secrets_file, "r") as f:
-                    keys = json.load(f)["keys"]
-                    self.key_states = {
-                        key: {
-                            'last_used': 0,
-                            'requests_in_minute': 0
-                        }
-                        for key in keys
-                    }
-                self.save_key_states()
-
-
-    def get_available_keys(self):
-        current_time = time.time()
-        with open(self.key_state_file, "r") as f:
-            self.key_states = json.load(f)
-            
-        for key, state in self.key_states.items():
-            if current_time - state['last_used'] >= 60:
-                state['requests_in_minute'] = 0
-            
-            if state["requests_in_minute"] < self.max_requests_per_minute:
-                state['last_used'] = current_time
-                state["requests_in_minute"] += 1
-                self.save_key_states()
-                return key
-            
-        earliest_reset = min(self.key_states.items(), key=lambda x:x[1]['last_used'])
-        sleep_time = (earliest_reset[1]["last_used"] + 90) - current_time
-        if sleep_time > 0:
-            print(f"All keys at limit. Sleeping for {sleep_time:.1f} seconds")
-            time.sleep(sleep_time)
-        return self.get_available_keys()
-    
-    def save_key_states(self):
-        # with file_lock:
-            temp_file = self.key_state_file + ".tmp"
-            with open(temp_file, "w") as f: 
-                json.dump(self.key_states, f, indent=2)
-            os.replace(temp_file, self.key_state_file)
 
     def get_gemini_model(self):
         """
         Initializes and returns a function to get the current Gemini model using the next API key.
         """
         def initialize_model():
-            current_key = self.get_available_keys()
+            current_key = next(self.api_keys)
             print("Using key: ****" + current_key[-5:])
             genai.configure(api_key=current_key)
             return genai.GenerativeModel(
@@ -140,7 +83,7 @@ class GeminiAPI:
             )
         return initialize_model
 
-    def get_llm_response(self, input_text, force_rotate=False):
+    def get_llm_response(self, input_text):
         """
         Generates a response from the Gemini model based on the input_text using generate_content.
         Args:
@@ -148,16 +91,15 @@ class GeminiAPI:
         Returns:
             str or None: The model's response in the specified MIME type if successful, else None.
         """
-        if self.request_count >= self.max_requests_per_key or force_rotate: 
+        if self.request_count >= self.max_requests_per_key:
             self.model = self.get_model()
             self.request_count = 0
-        print("starting")
+
         try:
             response = self.model.generate_content(
                 input_text,
                 generation_config=self.generation_config
             )
-            print("content generated")
             time.sleep(self.sleep_time)
             self.request_count += 1
             return response
@@ -199,11 +141,6 @@ class GeminiAPI:
         return result['embedding']
 
 # Usage Example:
-
-if __name__ == "__main__":
-    print("starting 1")
-    gemini_api = GeminiAPI(secrets_file="secrets/gemini_keys.json")
-    print(gemini_api.get_llm_response("Hello, world!", force_rotate=True))
 
 # if __name__ == "__main__":
 #     import json
